@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+numpy
+scipy
+pandas
+matplotlib
+openpyxl
+python-multipart
+pydantic

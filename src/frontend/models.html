@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Modelos de Dispersión - Elipsometría</title>
+
+  <!-- Bootstrap -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <!-- Styles local -->
+  <link rel="stylesheet" href="styles.css">
+
+  <!-- MathJax para fórmulas LaTeX -->
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+  <style>
+    body { background-color: #f9f9fb; }
+    .card { border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.06); }
+    .card h4 { color: #0d6efd; margin-bottom: 0.5rem; }
+    .formula { background:#f1f3f5; border-radius:8px; padding:12px; font-size:1.05rem; text-align:center; margin:12px 0; }
+    .small-muted { font-size:0.9rem; color:#6c757d; }
+    footer { text-align:center; padding:18px; margin-top:30px; color:#6c757d; }
+    .params-example { font-family: monospace; background:#fff; border:1px solid #e9ecef; padding:8px; border-radius:6px; display:inline-block; }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+    <div class="container">
+      <a class="navbar-brand fw-bold" href="index.html">ΔΨ Free</a>
+      <div class="collapse navbar-collapse">
+        <ul class="navbar-nav me-auto">
+          <li class="nav-item"><a class="nav-link" href="index.html">Inicio</a></li>
+          <li class="nav-item"><a class="nav-link" href="theory.html">Teoría</a></li>
+          <li class="nav-item"><a class="nav-link active" href="models.html">Modelos</a></li>
+          <li class="nav-item"><a class="nav-link" href="upload.html">Optimización</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <!-- CONTENIDO -->
+  <div class="container mt-5 mb-5">
+    <h1 class="text-center mb-3">Modelos de Dispersión</h1>
+    <p class="text-center text-muted mb-4">
+      Los modelos de dispersión describen cómo varían el índice de refracción \(n(\lambda)\) y el coeficiente de extinción \(k(\lambda)\)
+      en función de la longitud de onda (o energía). Aquí tienes los modelos más usados y una breve guía de cuándo aplicarlos.
+    </p>
+
+    <!-- GRID DE MODELOS -->
+    <div class="row g-4">
+
+      <!-- Cauchy -->
+      <div class="col-md-6 col-lg-4">
+        <div class="card p-4 h-100">
+          <h4 class="text-center">Cauchy</h4>
+          <div class="formula">
+            $$ n(\lambda) = A + \frac{B}{\lambda^2} + \frac{C}{\lambda^4} $$
+          </div>
+          <p class="small-muted text-center mb-2">
+            Uso: materiales dieléctricos transparentes (sin absorción significativa) en la región visible/IR.
+          </p>
+          <p class="text-center">
+            Ejemplo parámetros:
+            <span class="params-example">A=1.50, B=0.004, C=0.0</span>
+          </p>
+          <div class="d-flex justify-content-center mt-3">
+            <a href="upload.html" class="btn btn-outline-primary me-2">Usar en Optimización</a>
+            <button class="btn btn-outline-secondary" onclick="showInfo('Cauchy','Ajuste empírico para dieléctricos transparentes. No modela absorción.')">Info</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lorentz -->
+      <div class="col-md-6 col-lg-4">
+        <div class="card p-4 h-100">
+          <h4 class="text-center">Lorentz (oscilador)</h4>
+          <div class="formula">
+            $$ \varepsilon(\omega) = \varepsilon_{\infty} +
+            \sum_{i} \frac{A_i \omega_{0i}^2}{\omega_{0i}^2 - \omega^2 - i\gamma_i \omega} $$
+          </div>
+          <p class="small-muted text-center mb-2">
+            Uso: semiconductores y materiales con absorciones discretas (resonancias ópticas).
+          </p>
+          <p class="text-center">
+            Ejemplo (un oscilador):
+            <span class="params-example">ε∞=1.0, A₁=1.2, ω₀=3.5 eV, γ₁=0.2 eV</span>
+          </p>
+          <div class="d-flex justify-content-center mt-3">
+            <a href="upload.html" class="btn btn-outline-primary me-2">Usar en Optimización</a>
+            <button class="btn btn-outline-secondary" onclick="showInfo('Lorentz','Suma de osciladores para resonancias; se convierte a n,k vía ε→√ε.')">Info</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Drude -->
+      <div class="col-md-6 col-lg-4">
+        <div class="card p-4 h-100">
+          <h4 class="text-center">Drude</h4>
+          <div class="formula">
+            $$ \varepsilon(\omega) = \varepsilon_{\infty} - \frac{\omega_p^2}{\omega^2 + i\gamma \omega} $$
+          </div>
+          <p class="small-muted text-center mb-2">
+            Uso: metales y materiales con portadores libres (conducción electrónica dominante).
+          </p>
+          <p class="text-center">
+            Ejemplo:
+            <span class="params-example">ε∞=1.0, ω_p=9 eV, γ=0.1 eV</span>
+          </p>
+          <div class="d-flex justify-content-center mt-3">
+            <a href="upload.html" class="btn btn-outline-primary me-2">Usar en Optimización</a>
+            <button class="btn btn-outline-secondary" onclick="showInfo('Drude','Modelo para electrones libres; bueno para metales en IR/visible.')">Info</button>
+          </div>
+        </div>
+      </div>
+
+          <!-- Sellmeier -->
+      <div class="col-md-6 col-lg-4">
+        <div class="card p-4 h-100">
+          <h4 class="text-center">Sellmeier</h4>
+          <div class="formula">
+            $$ n^2(\lambda) = 1 + \sum_{i} \frac{B_i \lambda^2}{\lambda^2 - C_i} $$
+          </div>
+          <p class="small-muted text-center mb-2">
+            Uso: vidrios y materiales transparentes donde la dispersión es suave y sin absorción en la región considerada.
+          </p>
+          <p class="text-center">
+            Ejemplo (una rama):
+            <span class="params-example">B₁=1.03961212, C₁=0.00600069867 (λ in μm)</span>
+          </p>
+          <div class="d-flex justify-content-center mt-3">
+            <a href="upload.html" class="btn btn-outline-primary me-2">Usar en Optimización</a>
+            <button class="btn btn-outline-secondary" onclick="showInfo('Sellmeier','Excelente para cristales/vidrios; parámetros B_i,C_i se ajustan a datos de dispersión.')">Info</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Añade aquí más modelos si lo deseas -->
+    </div>
+  </div>
+
+  <footer>
+    <p>© 2025 ΔΨ Free — Elipsometría Espectroscópica (Tesis)</p>
+  </footer>
+
+  <!-- Modal simple para mostrar info (HTML + JS) -->
+  <div class="modal fade" id="infoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="infoTitle">Info</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body" id="infoBody"></div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+          <a id="toOpt" href="upload.html" class="btn btn-primary">Ir a Optimización</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bootstrap JS (para modal) -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    const infoModal = new bootstrap.Modal(document.getElementById('infoModal'));
+    function showInfo(title, text) {
+      document.getElementById('infoTitle').innerText = title;
+      document.getElementById('infoBody').innerText = text;
+      infoModal.show();
+    }
+  </script>
+
+</body>
+</html>

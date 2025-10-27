@@ -1,0 +1,547 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Ellipsometry - Upload</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+  <style>
+    body { padding-top: 70px; background: #f8f9fa; }
+    .card-preview { box-shadow: 0 6px 18px rgba(0,0,0,.05); }
+    .upload-area { border: 2px dashed #ced4da; padding: 30px; border-radius: 8px; background: #ffffff; }
+    .table-preview td, .table-preview th { vertical-align: middle; }
+
+    /* Nuevos estilos para layout corregido */
+    .actions-card {
+      position: sticky;
+      top: 90px;
+      z-index: 2;
+      box-shadow: 0 6px 18px rgba(0,0,0,.04);
+    }
+    /* Ajuste de la tabla preview para mostrar mejor 10 filas */
+    .table-preview td, .table-preview th { padding: .65rem; }
+  </style>
+</head>
+<body>
+
+<!-- Navbar (you can keep your existing navbar) -->
+<nav class="navbar navbar-expand-lg navbar-light bg-white fixed-top shadow-sm">
+  <div class="container">
+    <a class="navbar-brand" href="index.html">Ellipsometry</a>
+    <div class="collapse navbar-collapse">
+      <ul class="navbar-nav me-auto">
+        <li class="nav-item"><a class="nav-link" href="index.html">Inicio</a></li>
+        <li class="nav-item"><a class="nav-link" href="theory.html">Teoría</a></li>
+        <li class="nav-item"><a class="nav-link" href="models.html">Modelos de dispersion</a></li>
+        <li class="nav-item"><a class="nav-link active" href="upload.html">Optimización</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<!-- CONTENIDO: layout nuevo con columna izquierda más ancha -->
+<div class="container">
+  <div class="row g-4">
+    <!-- IZQUIERDA: Upload + Preview + Acciones -->
+    <div class="col-lg-7">
+      <div class="card card-preview mb-3">
+        <div class="card-body">
+          <h5 class="card-title">1) Subir datos experimentales</h5>
+          <p class="text-muted small">Sube un archivo .csv, .txt o .xlsx con columnas: <code>wavelength</code>, <code>psi</code>, <code>delta</code>. Se mostrará una vista previa y la gráfica.</p>
+
+          <div id="upload-area" class="upload-area mb-3">
+            <form id="upload-form">
+              <div class="mb-3">
+                <input class="form-control" type="file" id="file-input" accept=".csv,.txt,.xlsx" />
+              </div>
+              <div class="d-flex gap-2">
+                <button id="btn-upload" type="button" class="btn btn-primary">Subir y visualizar</button>
+                <button id="btn-clear" type="button" class="btn btn-outline-secondary">Limpiar</button>
+              </div>
+            </form>
+          </div>
+
+          <div id="alerts"></div>
+
+          <hr/>
+
+          <h6 class="mb-2">Vista previa (primeras 10 filas)</h6>
+          <div id="preview-table" class="table-responsive" style="max-height:420px; overflow:auto;"></div>
+
+        </div>
+      </div>
+
+      <div class="mt-3 text-muted small">
+        <p><strong>Tip:</strong> si tus columnas tienen otros nombres (ej. <code>wl</code>, <code>phi</code>), las detectamos automáticamente.</p>
+      </div>
+
+      <!-- Acciones: ahora dentro de la columna izquierda y sticky -->
+      <div class="card card-preview actions-card mb-3">
+        <div class="card-body">
+          <h6>Acciones</h6>
+          <p class="small text-muted">Descarga tus resultados o continúa al siguiente paso para definir la pila y modelos.</p>
+          <button id="btn-next" class="btn btn-success" disabled>Continuar a Pila / Modelos</button>
+        </div>
+      </div>
+
+      <!-- Aquí aparecerá el resumen del modelo cuando el usuario lo guarde -->
+      <!-- se insertará dinámicamente por showModelSummary(model) -->
+    </div>
+
+    <!-- DERECHA: Graficas -->
+    <div class="col-lg-5">
+      <div class="card card-preview mb-3">
+        <div class="card-body">
+          <h5 class="card-title">Gráficas experimentales</h5>
+          <div id="plot-psi" style="height:320px;"></div>
+          <div id="plot-delta" style="height:320px; margin-top: 18px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const apiUrl = "http://localhost:8000/api/upload"; // ajusta si tu backend está en otra URL
+
+const fileInput = document.getElementById("file-input");
+const btnUpload = document.getElementById("btn-upload");
+const btnClear = document.getElementById("btn-clear");
+const previewDiv = document.getElementById("preview-table");
+const alerts = document.getElementById("alerts");
+const btnNext = document.getElementById("btn-next");
+
+function showAlert(message, type="danger") {
+  alerts.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
+    ${message}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>`;
+}
+
+function clearAll() {
+  previewDiv.innerHTML = "";
+  Plotly.purge("plot-psi");
+  Plotly.purge("plot-delta");
+  alerts.innerHTML = "";
+  btnNext.disabled = true;
+  fileInput.value = "";
+}
+
+btnClear.addEventListener("click", clearAll);
+
+btnUpload.addEventListener("click", async () => {
+  alerts.innerHTML = "";
+  if (!fileInput.files || fileInput.files.length === 0) {
+    showAlert("Selecciona un archivo antes de subir.", "warning");
+    return;
+  }
+  const file = fileInput.files[0];
+  const fd = new FormData();
+  fd.append("file", file);
+
+  btnUpload.disabled = true;
+  btnUpload.innerText = "Subiendo...";
+
+  try {
+    const res = await fetch(apiUrl, { method: "POST", body: fd });
+    if (!res.ok) {
+      const err = await res.json();
+      showAlert(err.detail || "Error al procesar el archivo.");
+      btnUpload.disabled = false;
+      btnUpload.innerText = "Subir y visualizar";
+      return;
+    }
+    const json = await res.json();
+    renderPreview(json.preview);
+    renderPlots(json.data);
+    btnNext.disabled = false;
+    showAlert("Archivo cargado correctamente.", "success");
+  } catch (e) {
+    console.error(e);
+    showAlert("No se pudo conectar con el servidor. ¿El backend está corriendo?", "danger");
+  } finally {
+    btnUpload.disabled = false;
+    btnUpload.innerText = "Subir y visualizar";
+  }
+});
+
+function renderPreview(rows) {
+  if (!rows || rows.length === 0) {
+    previewDiv.innerHTML = "<p class='text-muted small'>No hay filas para mostrar.</p>";
+    return;
+  }
+  // Build table
+  const cols = Object.keys(rows[0]);
+  let html = "<table class='table table-sm table-striped table-hover table-preview'><thead><tr>";
+  cols.forEach(c => html += `<th>${c}</th>`);
+  html += "</tr></thead><tbody>";
+  rows.forEach(r => {
+    html += "<tr>";
+    cols.forEach(c => html += `<td>${r[c] === null || r[c] === undefined ? "" : r[c]}</td>`);
+    html += "</tr>";
+  });
+  html += "</tbody></table>";
+  previewDiv.innerHTML = html;
+}
+
+function renderPlots(data) {
+  const w = data.wavelength.map(x => Number(x));
+  const psi = data.psi.map(x => x === null ? NaN : Number(x));
+  const delta = data.delta.map(x => x === null ? NaN : Number(x));
+
+  const psiTrace = {
+    x: w, y: psi, mode: "lines+markers", name: "ψ",
+    line: {width: 2}, marker: {size:6}
+  };
+  const deltaTrace = {
+    x: w, y: delta, mode: "lines+markers", name: "Δ",
+    line: {width: 2}, marker: {size:6}
+  };
+
+  const layoutPsi = {
+    margin: {t:30, r:20, l:50, b:50},
+    title: {text: "Psi (ψ) vs Wavelength", font: {size:14}},
+    xaxis: {title:"Wavelength (nm)"},
+    yaxis: {title:"ψ (degrees)"},
+    template: "plotly_white"
+  };
+  const layoutDelta = {
+    margin: {t:30, r:20, l:50, b:50},
+    title: {text: "Delta (Δ) vs Wavelength", font: {size:14}},
+    xaxis: {title:"Wavelength (nm)"},
+    yaxis: {title:"Δ (degrees)"},
+    template: "plotly_white"
+  };
+
+  Plotly.newPlot("plot-psi", [psiTrace], layoutPsi, {responsive:true});
+  Plotly.newPlot("plot-delta", [deltaTrace], layoutDelta, {responsive:true});
+}
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- Modal Wizard para crear modelo óptico -->
+<div class="modal fade" id="modelWizardModal" tabindex="-1" aria-labelledby="modelWizardLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modelWizardLabel">Crear modelo óptico — Paso <span id="wizard-step-num">1</span> / 3</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <!-- Paso 1: Ajustes globales -->
+        <div class="wizard-step" data-step="1">
+          <h6>Ajustes globales</h6>
+          <div class="mb-3">
+            <label class="form-label">Ángulo de incidencia (grados)</label>
+            <input id="input-angle" type="number" min="0" max="90" step="0.1" class="form-control" value="70">
+            <div class="form-text">Ángulo usado en la medición (ej. 70°).</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Polarización</label>
+            <select id="input-polarization" class="form-select">
+              <option value="both" selected>Ambas (S y P)</option>
+              <option value="S">S (TE)</option>
+              <option value="P">P (TM)</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Longitudes de onda</label>
+            <div class="form-check form-switch mb-2">
+              <input class="form-check-input" type="checkbox" id="use-file-wavelengths" checked>
+              <label class="form-check-label" for="use-file-wavelengths">Usar longitudes de onda del archivo subido</label>
+            </div>
+            <div id="custom-wl-row" style="display:none;">
+              <input id="input-wl-from" type="number" class="form-control mb-2" placeholder="λ inicial (nm)">
+              <input id="input-wl-to" type="number" class="form-control mb-2" placeholder="λ final (nm)">
+              <input id="input-wl-steps" type="number" class="form-control" placeholder="Número de pasos" value="50">
+            </div>
+          </div>
+        </div>
+
+        <!-- Paso 2: Medio y sustrato -->
+        <div class="wizard-step d-none" data-step="2">
+          <h6>Medio incidente y sustrato</h6>
+          <div class="mb-3">
+            <label class="form-label">Medio superior (ambient)</label>
+            <select id="ambient-select" class="form-select">
+              <option value="air" selected>Aire (n=1.0)</option>
+              <option value="custom">Subir archivo n(λ)</option>
+            </select>
+            <input id="ambient-file" type="file" accept=".csv,.txt,.xlsx" class="form-control mt-2" style="display:none;">
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Sustrato</label>
+            <select id="substrate-select" class="form-select">
+              <option value="glass" selected>Glass (preset n≈1.52)</option>
+              <option value="si">Silicon (preset)</option>
+              <option value="custom">Subir archivo n(λ)</option>
+            </select>
+            <input id="substrate-file" type="file" accept=".csv,.txt,.xlsx" class="form-control mt-2" style="display:none;">
+            <div class="form-text">Si subes archivo, debe tener columnas wl, n, k o wl, n.</div>
+          </div>
+        </div>
+
+        <!-- Paso 3: Definir capas -->
+        <div class="wizard-step d-none" data-step="3">
+          <h6>Definir capas</h6>
+          <p class="small text-muted">Agrega una o más capas. El orden será de arriba (incidente) a abajo (sustrato).</p>
+
+          <div id="layers-container"></div>
+
+          <div class="mt-3">
+            <button id="add-layer" class="btn btn-outline-primary btn-sm">+ Añadir capa</button>
+            <div class="form-text mt-2">Por cada capa: nombre, espesor (nm), modelo (Cauchy/File/EMT) y si se optimiza.</div>
+          </div>
+
+        </div>
+
+      </div>
+
+      <div class="modal-footer">
+        <div class="me-auto text-muted small" id="wizard-error" style="display:none;"></div>
+        <button type="button" class="btn btn-secondary" id="wizard-prev" style="display:none;">Atrás</button>
+        <button type="button" class="btn btn-primary" id="wizard-next">Siguiente</button>
+        <button type="button" class="btn btn-success d-none" id="wizard-save">Guardar modelo</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<script>
+/* WIZARD UI logic */
+const modelWizardModal = new bootstrap.Modal(document.getElementById("modelWizardModal"));
+const wizardSteps = [...document.querySelectorAll(".wizard-step")];
+let currentStep = 1;
+
+document.getElementById("btn-next").addEventListener("click", () => {
+  // abrir modal
+  document.getElementById("wizard-step-num").innerText = currentStep;
+  modelWizardModal.show();
+});
+
+const wizardNextBtn = document.getElementById("wizard-next");
+const wizardPrevBtn = document.getElementById("wizard-prev");
+const wizardSaveBtn = document.getElementById("wizard-save");
+const wizardError = document.getElementById("wizard-error");
+
+function showStep(n) {
+  wizardSteps.forEach(s => s.classList.add("d-none"));
+  const el = document.querySelector(`.wizard-step[data-step="${n}"]`);
+  if (el) el.classList.remove("d-none");
+  document.getElementById("wizard-step-num").innerText = n;
+  // toggle buttons
+  wizardPrevBtn.style.display = (n === 1) ? "none" : "inline-block";
+  wizardNextBtn.style.display = (n === wizardSteps.length) ? "none" : "inline-block";
+  wizardSaveBtn.classList.toggle("d-none", n !== wizardSteps.length);
+  wizardError.style.display = "none";
+}
+showStep(1);
+
+// next / prev handlers
+wizardNextBtn.addEventListener("click", () => {
+  if (currentStep < wizardSteps.length) {
+    // optional validation per step
+    if (!validateStep(currentStep)) return;
+    currentStep += 1;
+    showStep(currentStep);
+  }
+});
+wizardPrevBtn.addEventListener("click", () => {
+  if (currentStep > 1) {
+    currentStep -= 1;
+    showStep(currentStep);
+  }
+});
+
+// toggle wavelength inputs
+document.getElementById("use-file-wavelengths").addEventListener("change", (e) => {
+  document.getElementById("custom-wl-row").style.display = e.target.checked ? "none" : "block";
+});
+
+// ambient / substrate file toggles
+document.getElementById("ambient-select").addEventListener("change", (e) => {
+  document.getElementById("ambient-file").style.display = e.target.value === "custom" ? "block" : "none";
+});
+document.getElementById("substrate-select").addEventListener("change", (e) => {
+  document.getElementById("substrate-file").style.display = e.target.value === "custom" ? "block" : "none";
+});
+
+/* Layers management */
+const layersContainer = document.getElementById("layers-container");
+document.getElementById("add-layer").addEventListener("click", addLayer);
+
+// add initial single layer
+addLayer();
+
+function addLayer(prefill={}) {
+  const idx = layersContainer.children.length;
+  const wrapper = document.createElement("div");
+  wrapper.className = "card mb-2 p-2";
+  wrapper.innerHTML = `
+    <div class="d-flex justify-content-between align-items-start">
+      <strong>Layer ${idx+1}</strong>
+      <div>
+        <button class="btn btn-sm btn-outline-danger remove-layer">Eliminar</button>
+      </div>
+    </div>
+    <div class="row mt-2 g-2">
+      <div class="col-md-6">
+        <label class="form-label">Nombre</label>
+        <input class="form-control layer-name" value="${prefill.name||('Layer '+(idx+1))}">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Espesor (nm)</label>
+        <div class="input-group">
+          <input class="form-control layer-thickness" type="number" min="0" value="${prefill.thickness||100}">
+          <span class="input-group-text">
+            <input class="form-check-input mt-0 layer-optimize" type="checkbox" title="Marcar si se optimiza" ${prefill.optimize ? 'checked' : ''}/>
+          </span>
+        </div>
+        <div class="form-text">Marcar campo para permitir optimización</div>
+      </div>
+
+      <div class="col-md-6">
+        <label class="form-label">Modelo</label>
+        <select class="form-select layer-model">
+          <option value="cauchy" selected>Cauchy</option>
+          <option value="file">Archivo n(λ)</option>
+          <option value="emt">Medio Efectivo (EMT)</option>
+          <option value="drude">Drude / Lorentz</option>
+        </select>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Parámetros (ejemplo)</label>
+        <input class="form-control layer-params" placeholder="Cauchy: A,B,C (ej. 1.4,0.003,0)">
+      </div>
+      <div class="col-12 mt-2 layer-file-row" style="display:none;">
+        <input type="file" accept=".csv,.txt,.xlsx" class="form-control layer-file"/>
+        <div class="form-text">Archivo con wl,n,k o wl,n</div>
+      </div>
+    </div>
+  `;
+  layersContainer.appendChild(wrapper);
+
+  // wiring
+  const removeBtn = wrapper.querySelector(".remove-layer");
+  removeBtn.addEventListener("click", () => { wrapper.remove(); refreshLayerTitles(); });
+
+  const modelSelect = wrapper.querySelector(".layer-model");
+  const fileRow = wrapper.querySelector(".layer-file-row");
+  modelSelect.addEventListener("change", (e) => {
+    fileRow.style.display = (e.target.value === "file") ? "block" : "none";
+  });
+}
+
+function refreshLayerTitles(){
+  [...layersContainer.children].forEach((c,i)=> c.querySelector("strong").innerText = `Layer ${i+1}`);
+}
+
+/* validation for each step (simple) */
+function validateStep(step) {
+  if (step === 1) {
+    const angle = Number(document.getElementById("input-angle").value);
+    if (isNaN(angle) || angle <= 0 || angle >= 90) {
+      wizardError.innerText = "Introduce un ángulo válido (0 < θ < 90).";
+      wizardError.style.display = "block";
+      return false;
+    }
+  }
+  if (step === 2) {
+    // nothing required here for now
+  }
+  return true;
+}
+
+/* build model object and show summary (on save) */
+wizardSaveBtn.addEventListener("click", async () => {
+  // collect model
+  const model = { global: {}, ambient: {}, substrate: {}, layers: [] };
+  model.global.angle = Number(document.getElementById("input-angle").value);
+  model.global.polarization = document.getElementById("input-polarization").value;
+  model.global.useFileWl = document.getElementById("use-file-wavelengths").checked;
+  if (!model.global.useFileWl) {
+    model.global.wl_from = Number(document.getElementById("input-wl-from").value);
+    model.global.wl_to = Number(document.getElementById("input-wl-to").value);
+    model.global.wl_steps = Number(document.getElementById("input-wl-steps").value);
+  }
+  // ambient
+  model.ambient.type = document.getElementById("ambient-select").value;
+  // substrate
+  model.substrate.type = document.getElementById("substrate-select").value;
+
+  // layers
+  [...layersContainer.children].forEach(card => {
+    const name = card.querySelector(".layer-name").value;
+    const thickness = Number(card.querySelector(".layer-thickness").value);
+    const optimize = card.querySelector(".layer-optimize").checked;
+    const modelType = card.querySelector(".layer-model").value;
+    const params = card.querySelector(".layer-params").value;
+    model.layers.push({name, thickness, optimize, modelType, params});
+  });
+
+  // show a quick summary in console and in the modal footer
+  console.log("MODEL SAVE", model);
+  wizardError.style.display = "none";
+
+  // hide modal
+  modelWizardModal.hide();
+
+  // display summary panel in the page (we'll inject a simple card)
+  showModelSummary(model);
+
+  // Optionally: POST to backend endpoint '/api/model' to save the model (see backend snippet)
+  try {
+    const res = await fetch('/api/model', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(model)
+    });
+    if (!res.ok) {
+      console.warn('Backend rejected model save:', await res.text());
+    } else {
+      console.log('Model saved on backend');
+    }
+  } catch (e) {
+    console.warn('Could not reach /api/model', e);
+  }
+});
+
+function showModelSummary(model) {
+  // inject a full-width card under the upload area summarizing the model (so no "hole")
+  const container = document.querySelector('.container');
+  // remove previous summary if exists
+  const existing = document.getElementById('model-summary-card');
+  if (existing) existing.remove();
+
+  const card = document.createElement('div');
+  card.id = 'model-summary-card';
+  card.className = 'card card-preview mt-4';
+  card.innerHTML = `
+    <div class="card-body">
+      <h5 class="card-title">Modelo óptico (resumen)</h5>
+      <p class="mb-1"><strong>Ángulo:</strong> ${model.global.angle}°, <strong>Polarización:</strong> ${model.global.polarization}</p>
+      <p class="mb-1"><strong>Capas:</strong> ${model.layers.length}</p>
+      <ul>${model.layers.map((ly, i) => `<li>${i+1}. ${ly.name} — ${ly.thickness} nm — ${ly.modelType} ${ly.optimize ? '(optimizable)' : ''}</li>`).join('')}</ul>
+      <div class="mt-2">
+        <button id="edit-model" class="btn btn-outline-secondary btn-sm">Editar modelo</button>
+        <button id="go-fit" class="btn btn-success btn-sm ms-2">Ir a optimización</button>
+      </div>
+    </div>
+  `;
+  // insert after top row
+  const topRow = document.querySelector('.container > .row');
+  topRow.insertAdjacentElement('afterend', card);
+
+  document.getElementById('edit-model').addEventListener('click', () => { document.getElementById('btn-next').click(); });
+  document.getElementById('go-fit').addEventListener('click', () => {
+    // TODO: navigate to optimization view or enable fitting UI
+    alert('Ir a optimización (a implementar).');
+  });
+}
+</script>
+
+</body>
+</html>
