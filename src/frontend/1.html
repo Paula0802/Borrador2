@@ -5,43 +5,26 @@
   <title>Ellipsometry - Upload</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
-
-  <!-- MathLive (opcional): editor de fórmulas LaTeX en el cliente -->
-  <script src="https://unpkg.com/mathlive/dist/mathlive.min.js"></script>
-  <link rel="stylesheet" href="https://unpkg.com/mathlive/dist/mathlive.min.css"/>
-
-  <!-- MathJax: render LaTeX bonito (fracciones, potencias, etc) -->
-  <script>
-    window.MathJax = {
-      tex: { inlineMath: [['$','$'], ['\\(','\\)']] },
-      options: { skipHtmlTags: ['script','noscript','style','textarea','pre','code'] }
-    };
-  </script>
-  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
-
   <style>
     body { padding-top: 70px; background: #f8f9fa; }
     .card-preview { box-shadow: 0 6px 18px rgba(0,0,0,.05); }
     .upload-area { border: 2px dashed #ced4da; padding: 30px; border-radius: 8px; background: #ffffff; }
     .table-preview td, .table-preview th { vertical-align: middle; }
 
-    .actions-card { position: sticky; top: 90px; z-index: 2; box-shadow: 0 6px 18px rgba(0,0,0,.04); }
-    .table-preview td, .table-preview th { padding: .65rem; }
-
-    .eq-preview {
-      background:#f8f9fa;
-      padding:8px;
-      border-radius:6px;
-      border:1px solid #e6e6e6;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", monospace;
-      margin-top:6px;
-      min-height: 28px;
+    /* Nuevos estilos para layout corregido */
+    .actions-card {
+      position: sticky;
+      top: 90px;
+      z-index: 2;
+      box-shadow: 0 6px 18px rgba(0,0,0,.04);
     }
-    .small-muted { font-size:.875rem; color:#6c757d; }
+    /* Ajuste de la tabla preview para mostrar mejor 10 filas */
+    .table-preview td, .table-preview th { padding: .65rem; }
   </style>
 </head>
 <body>
 
+<!-- Navbar (you can keep your existing navbar) -->
 <nav class="navbar navbar-expand-lg navbar-light bg-white fixed-top shadow-sm">
   <div class="container">
     <a class="navbar-brand" href="index.html">Ellipsometry</a>
@@ -56,8 +39,10 @@
   </div>
 </nav>
 
+<!-- CONTENIDO: layout nuevo con columna izquierda más ancha -->
 <div class="container">
   <div class="row g-4">
+    <!-- IZQUIERDA: Upload + Preview + Acciones -->
     <div class="col-lg-7">
       <div class="card card-preview mb-3">
         <div class="card-body">
@@ -90,23 +75,20 @@
         <p><strong>Tip:</strong> si tus columnas tienen otros nombres (ej. <code>wl</code>, <code>phi</code>), las detectamos automáticamente.</p>
       </div>
 
+      <!-- Acciones: ahora dentro de la columna izquierda y sticky -->
       <div class="card card-preview actions-card mb-3">
         <div class="card-body">
           <h6>Acciones</h6>
           <p class="small text-muted">Descarga tus resultados o continúa al siguiente paso para definir la pila y modelos.</p>
           <button id="btn-next" class="btn btn-success" disabled>Continuar a Pila / Modelos</button>
-
-          <!-- botón para ejecutar TMM -->
-          <button id="btn-run-tmm" class="btn btn-outline-primary btn-sm mt-2">Calcular TMM</button>
-
-          <!-- input file para el material (ejemplo) -->
-          <input type="file" id="film-file-input" accept=".csv,.txt,.xlsx" class="form-control mt-2" />
-
         </div>
       </div>
 
+      <!-- Aquí aparecerá el resumen del modelo cuando el usuario lo guarde -->
+      <!-- se insertará dinámicamente por showModelSummary(model) -->
     </div>
 
+    <!-- DERECHA: Graficas -->
     <div class="col-lg-5">
       <div class="card card-preview mb-3">
         <div class="card-body">
@@ -138,7 +120,8 @@ function showAlert(message, type="danger") {
 
 function clearAll() {
   previewDiv.innerHTML = "";
-  try { Plotly.purge("plot-psi"); Plotly.purge("plot-delta"); } catch(e){}
+  Plotly.purge("plot-psi");
+  Plotly.purge("plot-delta");
   alerts.innerHTML = "";
   btnNext.disabled = true;
   fileInput.value = "";
@@ -162,7 +145,7 @@ btnUpload.addEventListener("click", async () => {
   try {
     const res = await fetch(apiUrl, { method: "POST", body: fd });
     if (!res.ok) {
-      const err = await res.json().catch(()=>({detail:"error"}));
+      const err = await res.json();
       showAlert(err.detail || "Error al procesar el archivo.");
       btnUpload.disabled = false;
       btnUpload.innerText = "Subir y visualizar";
@@ -187,6 +170,7 @@ function renderPreview(rows) {
     previewDiv.innerHTML = "<p class='text-muted small'>No hay filas para mostrar.</p>";
     return;
   }
+  // Build table
   const cols = Object.keys(rows[0]);
   let html = "<table class='table table-sm table-striped table-hover table-preview'><thead><tr>";
   cols.forEach(c => html += `<th>${c}</th>`);
@@ -205,11 +189,29 @@ function renderPlots(data) {
   const psi = data.psi.map(x => x === null ? NaN : Number(x));
   const delta = data.delta.map(x => x === null ? NaN : Number(x));
 
-  const psiTrace = { x: w, y: psi, mode: "lines+markers", name: "ψ", line: {width: 2}, marker: {size:6} };
-  const deltaTrace = { x: w, y: delta, mode: "lines+markers", name: "Δ", line: {width: 2}, marker: {size:6} };
+  const psiTrace = {
+    x: w, y: psi, mode: "lines+markers", name: "ψ",
+    line: {width: 2}, marker: {size:6}
+  };
+  const deltaTrace = {
+    x: w, y: delta, mode: "lines+markers", name: "Δ",
+    line: {width: 2}, marker: {size:6}
+  };
 
-  const layoutPsi = { margin: {t:30, r:20, l:50, b:50}, title: {text: "Psi (ψ) vs Wavelength", font: {size:14}}, xaxis: {title:"Wavelength (nm)"}, yaxis: {title:"ψ (degrees)"}, template: "plotly_white" };
-  const layoutDelta = { margin: {t:30, r:20, l:50, b:50}, title: {text: "Delta (Δ) vs Wavelength", font: {size:14}}, xaxis: {title:"Wavelength (nm)"}, yaxis: {title:"Δ (degrees)"}, template: "plotly_white" };
+  const layoutPsi = {
+    margin: {t:30, r:20, l:50, b:50},
+    title: {text: "Psi (ψ) vs Wavelength", font: {size:14}},
+    xaxis: {title:"Wavelength (nm)"},
+    yaxis: {title:"ψ (degrees)"},
+    template: "plotly_white"
+  };
+  const layoutDelta = {
+    margin: {t:30, r:20, l:50, b:50},
+    title: {text: "Delta (Δ) vs Wavelength", font: {size:14}},
+    xaxis: {title:"Wavelength (nm)"},
+    yaxis: {title:"Δ (degrees)"},
+    template: "plotly_white"
+  };
 
   Plotly.newPlot("plot-psi", [psiTrace], layoutPsi, {responsive:true});
   Plotly.newPlot("plot-delta", [deltaTrace], layoutDelta, {responsive:true});
@@ -227,6 +229,7 @@ function renderPlots(data) {
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>
       <div class="modal-body">
+        <!-- Paso 1: Ajustes globales -->
         <div class="wizard-step" data-step="1">
           <h6>Ajustes globales</h6>
           <div class="mb-3">
@@ -245,10 +248,14 @@ function renderPlots(data) {
 
           <div class="mb-3">
             <label class="form-label">Longitudes de onda</label>
+
+            <!-- Opción 1: usar archivo -->
             <div class="form-check">
               <input class="form-check-input" type="radio" name="wl-option" id="wl-option-file" value="file" checked>
               <label class="form-check-label" for="wl-option-file">Usar longitudes de onda del archivo subido</label>
             </div>
+
+            <!-- Opción 2: rango -->
             <div class="form-check mt-2">
               <input class="form-check-input" type="radio" name="wl-option" id="wl-option-range" value="range">
               <label class="form-check-label" for="wl-option-range">Definir un rango de longitudes de onda</label>
@@ -258,6 +265,8 @@ function renderPlots(data) {
               <input id="input-wl-to" type="number" class="form-control mb-2" placeholder="λ final (nm)">
               <input id="input-wl-steps" type="number" class="form-control" placeholder="Número de pasos">
             </div>
+
+            <!-- Opción 3: única -->
             <div class="form-check mt-2">
               <input class="form-check-input" type="radio" name="wl-option" id="wl-option-single" value="single">
               <label class="form-check-label" for="wl-option-single">Usar una sola longitud de onda</label>
@@ -265,9 +274,11 @@ function renderPlots(data) {
             <div id="wl-single-field" class="mt-2 ms-4" style="display:none;">
               <input id="input-wl-single" type="number" class="form-control" placeholder="λ (nm)">
             </div>
+
           </div>
         </div>
 
+        <!-- Paso 2: Medio y sustrato -->
         <div class="wizard-step d-none" data-step="2">
           <h6>Medio incidente y sustrato</h6>
           <div class="mb-3">
@@ -291,6 +302,7 @@ function renderPlots(data) {
           </div>
         </div>
 
+        <!-- Paso 3: Definir capas -->
         <div class="wizard-step d-none" data-step="3">
           <h6>Definir capas</h6>
           <p class="small text-muted">Agrega una o más capas. El orden será de arriba (incidente) a abajo (sustrato).</p>
@@ -317,12 +329,13 @@ function renderPlots(data) {
 </div>
 
 <script>
-/* WIZARD UI logic (igual que antes) */
+/* WIZARD UI logic */
 const modelWizardModal = new bootstrap.Modal(document.getElementById("modelWizardModal"));
 const wizardSteps = [...document.querySelectorAll(".wizard-step")];
 let currentStep = 1;
 
 document.getElementById("btn-next").addEventListener("click", () => {
+  // abrir modal
   document.getElementById("wizard-step-num").innerText = currentStep;
   modelWizardModal.show();
 });
@@ -337,6 +350,7 @@ function showStep(n) {
   const el = document.querySelector(`.wizard-step[data-step="${n}"]`);
   if (el) el.classList.remove("d-none");
   document.getElementById("wizard-step-num").innerText = n;
+  // toggle buttons
   wizardPrevBtn.style.display = (n === 1) ? "none" : "inline-block";
   wizardNextBtn.style.display = (n === wizardSteps.length) ? "none" : "inline-block";
   wizardSaveBtn.classList.toggle("d-none", n !== wizardSteps.length);
@@ -344,8 +358,10 @@ function showStep(n) {
 }
 showStep(1);
 
+// next / prev handlers
 wizardNextBtn.addEventListener("click", () => {
   if (currentStep < wizardSteps.length) {
+    // optional validation per step
     if (!validateStep(currentStep)) return;
     currentStep += 1;
     showStep(currentStep);
@@ -358,10 +374,11 @@ wizardPrevBtn.addEventListener("click", () => {
   }
 });
 
-// wavelength toggles
+// === wavelength option toggles ===
 const wlOptions = document.querySelectorAll('input[name="wl-option"]');
 const wlRangeFields = document.getElementById('wl-range-fields');
 const wlSingleField = document.getElementById('wl-single-field');
+
 wlOptions.forEach(opt => {
   opt.addEventListener('change', () => {
     const val = document.querySelector('input[name="wl-option"]:checked').value;
@@ -370,7 +387,7 @@ wlOptions.forEach(opt => {
   });
 });
 
-// ambient/substrate toggles
+// ambient / substrate file toggles
 document.getElementById("ambient-select").addEventListener("change", (e) => {
   document.getElementById("ambient-file").style.display = e.target.value === "custom" ? "block" : "none";
 });
@@ -381,14 +398,16 @@ document.getElementById("substrate-select").addEventListener("change", (e) => {
 /* Layers management */
 const layersContainer = document.getElementById("layers-container");
 document.getElementById("add-layer").addEventListener("click", addLayer);
+
+// add initial single layer
 addLayer();
 
 function addLayer(prefill={}) {
   const idx = layersContainer.children.length;
-  const idxStr = String(idx);
   const wrapper = document.createElement("div");
-  wrapper.className = "card mb-2 p-2 layer-card";
-  wrapper.dataset.idx = idxStr;
+  wrapper.className = "card mb-2 p-2";
+  // usamos data-idx para referenciar inputs fácilmente
+  wrapper.dataset.idx = idx;
 
   wrapper.innerHTML = `
     <div class="d-flex justify-content-between align-items-start">
@@ -420,45 +439,34 @@ function addLayer(prefill={}) {
           <option value="file">Archivo n(λ)</option>
           <option value="emt">Medio Efectivo (EMT)</option>
           <option value="drude">Drude / Lorentz</option>
-          <option value="sellmeier">Sellmeier</option>
         </select>
       </div>
 
       <div class="col-md-6">
         <label class="form-label">Entrada</label>
-        <select class="form-select layer-input-mode">
-          <option value="params" selected>Parámetros</option>
-          <option value="formula">Usar fórmula (editor)</option>
-        </select>
-      </div>
-
-      <!-- Parámetros (creados dinámicamente) -->
-      <div class="col-12 mt-2 layer-params-row">
-        <label class="form-label">Parámetros (ejemplo)</label>
-        <div id="param-inputs-${idxStr}"></div>
-      </div>
-
-      <!-- PREVIEW de ecuación + botón editar -->
-      <div class="col-12 mt-2 eq-preview-row" style="display:none;">
-        <label class="form-label">Ecuación generada</label>
-        <div id="eq-preview-${idxStr}" class="eq-preview"></div>
-        <div class="mt-2 small-muted">¿Desea modificarla?
-          <button class="btn btn-sm btn-link eq-edit-yes">Sí</button>
-          <button class="btn btn-sm btn-link eq-edit-no">No</button>
+        <div class="input-group">
+          <select class="form-select layer-input-mode">
+            <option value="params" selected>Parámetros</option>
+            <option value="formula">Usar fórmula (editor)</option>
+          </select>
         </div>
       </div>
 
-      <!-- Editor de fórmula (math-field o textarea) -->
+      <div class="col-12 mt-2 layer-params-row">
+        <label class="form-label">Parámetros (ejemplo)</label>
+        <input class="form-control layer-params" placeholder="Cauchy: A,B,C (ej. 1.4,0.003,0)">
+      </div>
+
       <div class="col-12 mt-2 layer-formula-row" style="display:none;">
         <label class="form-label">Fórmula (editor)</label>
-        <math-field class="layer-mathfield" virtual-keyboard-mode="manual" style="min-height:40px;"></math-field>
-        <textarea class="form-control layer-formula-text mt-2" placeholder="También puedes pegar LaTeX aquí" style="display:none;"></textarea>
-        <div class="form-text">Puedes escribir o pegar LaTeX. Ej: <code>\\varepsilon(\\omega)=\\varepsilon_{\\infty} - \\dfrac{\\omega_p^{2}}{\\omega^{2} + i\\gamma\\omega}</code></div>
+        <!-- math-field de MathLive; el usuario puede pegar/editar la fórmula aquí -->
+        <math-field virtual-keyboard-mode="manual" aria-label="Editor de fórmula" class="layer-mathfield"></math-field>
+        <div class="formula-help">Puedes escribir o pegar LaTeX. Ej: <code>n(\lambda)=1 + \frac{A}{\lambda^{2}} + \frac{B}{\lambda^{4}}</code></div>
       </div>
 
       <div class="col-12 mt-2 layer-file-row" style="display:none;">
         <input type="file" accept=".csv,.txt,.xlsx" class="form-control layer-file"/>
-        <div class="form-text">Archivo con wl,e1,e2 (o wl,e) — si subes esto el backend puede usar la dieléctrica experimental.</div>
+        <div class="form-text">Archivo con wl,n,k o wl,n</div>
       </div>
     </div>
   `;
@@ -470,285 +478,90 @@ function addLayer(prefill={}) {
   removeBtn.addEventListener("click", () => { wrapper.remove(); refreshLayerTitles(); });
 
   const modelSelect = wrapper.querySelector(".layer-model");
-  const inputModeSelect = wrapper.querySelector(".layer-input-mode");
   const fileRow = wrapper.querySelector(".layer-file-row");
-  const paramsRow = wrapper.querySelector(".layer-params-row");
-  const formulaRow = wrapper.querySelector(".layer-formula-row");
-  const eqPreviewRow = wrapper.querySelector(".eq-preview-row");
-  const eqPreviewDiv = wrapper.querySelector(`#eq-preview-${idxStr}`);
-  const mathfield = wrapper.querySelector(".layer-mathfield");
-  const formulaText = wrapper.querySelector(".layer-formula-text");
+  const idxStr = String(idx);
 
-  // update parameter fields whenever model changes
-  modelSelect.addEventListener("change", () => {
+  // show/hide file row when model == file
+  modelSelect.addEventListener("change", (e) => {
+    fileRow.style.display = (e.target.value === "file") ? "block" : "none";
+    // also update param inputs for the selected model
     updateParamInputsForLayer(idxStr);
-    // show file upload when model === 'file' or model === 'drude' (so user can upload dielectric)
-    fileRow.style.display = (modelSelect.value === "file" || modelSelect.value === "drude") ? "block" : "none";
-    // if switching to params, maybe update preview
-    if (inputModeSelect.value === "params") {
-      const eq = buildEquationFromParams(idxStr);
-      if (eq) {
-        renderEquationPreview(eq, eqPreviewDiv);
-        eqPreviewRow.style.display = "block";
-        if (mathfield && typeof mathfield.setValue === 'function') mathfield.setValue(eq.latex);
+  });
+
+  // radio toggles for params vs formula
+  const radios = wrapper.querySelectorAll(`.layer-input-type`);
+  const paramsSection = wrapper.querySelector(".layer-params-section");
+  const formulaSection = wrapper.querySelector(".layer-formula-section");
+  radios.forEach(r => {
+    r.addEventListener("change", () => {
+      const val = wrapper.querySelector(`input[name="input_type_${idxStr}"]:checked`).value;
+      if (val === "params") {
+        paramsSection.style.display = "block";
+        formulaSection.style.display = "none";
       } else {
-        eqPreviewRow.style.display = "none";
+        paramsSection.style.display = "none";
+        formulaSection.style.display = "block";
       }
-    }
+    });
   });
 
-  // toggle between params / formula input modes
-  inputModeSelect.addEventListener("change", () => {
-    const mode = inputModeSelect.value;
-    if (mode === "params") {
-      paramsRow.style.display = "block";
-      formulaRow.style.display = "none";
-      const hasParams = checkAnyParams(idxStr);
-      eqPreviewRow.style.display = hasParams ? "block" : "none";
-    } else {
-      paramsRow.style.display = "none";
-      formulaRow.style.display = "block";
-      eqPreviewRow.style.display = "none";
-      if (mathfield && typeof mathfield.setValue === 'function') {
-        mathfield.style.display = "";
-        formulaText.style.display = "none";
-      } else {
-        mathfield.style.display = "none";
-        formulaText.style.display = "block";
-      }
-    }
-  });
-
-  function checkAnyParams(i) {
-    const inputs = wrapper.querySelectorAll(`#param-inputs-${i} input`);
-    for (const inp of inputs) {
-      if (inp.value !== "" && inp.value !== null && inp.value !== undefined) return true;
-    }
-    return false;
-  }
-
-  // when parameter inputs change, regenerate equation
-  wrapper.addEventListener("input", (e) => {
-    if (e.target.closest(`#param-inputs-${idxStr}`)) {
-      const eq = buildEquationFromParams(idxStr);
-      if (eq) {
-        renderEquationPreview(eq, eqPreviewDiv);
-        eqPreviewRow.style.display = "block";
-        if (mathfield && typeof mathfield.setValue === 'function') {
-          mathfield.setValue(eq.latex);
-          mathfield.style.display = "";
-          formulaText.style.display = "none";
-        } else {
-          formulaText.style.display = "block";
-          formulaText.value = eq.latex;
-        }
-      } else {
-        eqPreviewRow.style.display = "none";
-      }
-    }
-  });
-
-  // edit yes/no handlers
-  wrapper.querySelector(".eq-edit-yes").addEventListener("click", () => {
-    formulaRow.style.display = "block";
-    inputModeSelect.value = "formula";
-    paramsRow.style.display = "none";
-    eqPreviewRow.style.display = "none";
-    const eqObj = buildEquationFromParams(idxStr);
-    if (mathfield && typeof mathfield.setValue === 'function') {
-      mathfield.style.display = "";
-      formulaText.style.display = "none";
-      if (eqObj && eqObj.latex) mathfield.setValue(eqObj.latex);
-    } else {
-      mathfield.style.display = "none";
-      formulaText.style.display = "block";
-      if (eqObj && eqObj.latex) formulaText.value = eqObj.latex;
-    }
-  });
-  wrapper.querySelector(".eq-edit-no").addEventListener("click", () => {
-    formulaRow.style.display = "none";
-    inputModeSelect.value = "params";
-    const eq = buildEquationFromParams(idxStr);
-    if (eq) {
-      renderEquationPreview(eq, eqPreviewDiv);
-      eqPreviewRow.style.display = "block";
-    }
-  });
-
-  // mathfield listener
-  if (mathfield && typeof mathfield.addEventListener === 'function') {
-    try {
-      mathfield.addEventListener('input', () => {
-        let latex = null;
-        try { if (typeof mathfield.getValue === 'function') latex = mathfield.getValue(); else latex = mathfield.value || mathfield.textContent || ""; } catch (e) { latex = mathfield.value || mathfield.textContent || ""; }
-        if (latex && latex.trim().length > 0) {
-          renderEquationPreview({ latex, human: null }, eqPreviewDiv);
-          eqPreviewRow.style.display = "block";
-        }
-      });
-    } catch (e) {
-      mathfield.style.display = "none";
-      formulaText.style.display = "block";
-    }
-  }
-
-  // textarea fallback listener (user pastes LaTeX)
-  formulaText.addEventListener('input', () => {
-    const latex = formulaText.value || "";
-    if (latex.trim().length > 0) {
-      renderEquationPreview({ latex, human: null }, eqPreviewDiv);
-      eqPreviewRow.style.display = "block";
-    }
-  });
-
-  // initialize params UI and trigger preview if prefill
+  // create initial parameter inputs for the default/selected model
   updateParamInputsForLayer(idxStr);
+
+  // helper: preencher si viene prefill.params (opcional)
   if (prefill.params && typeof prefill.params === "string") {
+    // si prefill.params está en formato "A,B,C" lo parseamos y colocamos en inputs
     const parts = prefill.params.split(",").map(s => s.trim());
     const inputs = wrapper.querySelectorAll(`#param-inputs-${idxStr} input`);
     inputs.forEach((inp, i) => { if (parts[i] !== undefined) inp.value = parts[i]; });
-    wrapper.dispatchEvent(new Event('input', { bubbles: true }));
   }
 
+  // refresh titles count
   refreshLayerTitles();
 }
 
-/* create parameter fields */
+/* helper: crea campos de parámetros dentro de cada layer según el modelo elegido */
 function updateParamInputsForLayer(idxStr) {
-  const wrapper = layersContainer.querySelector(`div.layer-card[data-idx="${idxStr}"]`);
+  const wrapper = layersContainer.querySelector(`div.card[data-idx="${idxStr}"]`);
   if (!wrapper) return;
   const model = wrapper.querySelector(".layer-model").value;
   const container = wrapper.querySelector(`#param-inputs-${idxStr}`);
-  container.innerHTML = "";
+  container.innerHTML = ""; // limpiar
 
   if (model === "cauchy") {
     container.innerHTML = `
-      <label class="form-label small">Cauchy — parámetros (A + B/λ² + C/λ⁴):</label>
+      <label class="form-label small">Cauchy — parámetros:</label>
       <input class="form-control form-control-sm mb-1" name="A_${idxStr}" placeholder="A (ej. 1.45)" type="number" step="any">
       <input class="form-control form-control-sm mb-1" name="B_${idxStr}" placeholder="B (ej. 0.003)" type="number" step="any">
       <input class="form-control form-control-sm mb-1" name="C_${idxStr}" placeholder="C (ej. 0)" type="number" step="any">
     `;
   } else if (model === "sellmeier") {
     container.innerHTML = `
-      <label class="form-label small">Sellmeier — parámetros (B1,C1,B2,C2,B3,C3):</label>
-      <div class="row g-1">
-        <div class="col-6"><input class="form-control form-control-sm mb-1" name="B1_${idxStr}" placeholder="B1" type="number" step="any"></div>
-        <div class="col-6"><input class="form-control form-control-sm mb-1" name="C1_${idxStr}" placeholder="C1 (ej. 0.012)" type="number" step="any"></div>
-        <div class="col-6"><input class="form-control form-control-sm mb-1" name="B2_${idxStr}" placeholder="B2 (opcional)" type="number" step="any"></div>
-        <div class="col-6"><input class="form-control form-control-sm mb-1" name="C2_${idxStr}" placeholder="C2 (opcional)" type="number" step="any"></div>
-        <div class="col-6"><input class="form-control form-control-sm mb-1" name="B3_${idxStr}" placeholder="B3 (opcional)" type="number" step="any"></div>
-        <div class="col-6"><input class="form-control form-control-sm mb-1" name="C3_${idxStr}" placeholder="C3 (opcional)" type="number" step="any"></div>
-      </div>
-      <div class="form-text">Ecuación típica: $n^{2}(\\lambda)=1 + \\sum_{j} \\dfrac{B_j \\lambda^{2}}{\\lambda^{2} - C_j}$</div>
+      <label class="form-label small">Sellmeier — parámetros (B1,C1,B2,C2...):</label>
+      <input class="form-control form-control-sm mb-1" name="B1_${idxStr}" placeholder="B1" type="number" step="any">
+      <input class="form-control form-control-sm mb-1" name="C1_${idxStr}" placeholder="C1 (μm^2)" type="number" step="any">
+      <input class="form-control form-control-sm mb-1" name="B2_${idxStr}" placeholder="B2 (opcional)" type="number" step="any">
+      <input class="form-control form-control-sm mb-1" name="C2_${idxStr}" placeholder="C2 (opcional)" type="number" step="any">
     `;
   } else if (model === "drude") {
     container.innerHTML = `
       <label class="form-label small">Drude/Lorentz — parámetros:</label>
-      <div class="row g-1">
-        <div class="col-4"><input class="form-control form-control-sm mb-1" name="eps_inf_${idxStr}" placeholder="ε∞ (ej. 1.0)" type="number" step="any"></div>
-        <div class="col-4"><input class="form-control form-control-sm mb-1" name="wp_${idxStr}" placeholder="ωp (ej. 1.0) — unidades same as ω" type="number" step="any"></div>
-        <div class="col-4"><input class="form-control form-control-sm mb-1" name="gamma_${idxStr}" placeholder="Γ (ej. 0.1)" type="number" step="any"></div>
-      </div>
-      <div class="form-text">Ecuación típica: $\\varepsilon(\\omega)=\\varepsilon_{\\infty} - \\dfrac{\\omega_p^{2}}{\\omega^{2} + i\\gamma\\omega}$. Puedes subir archivo con wl,e1,e2 o wl,e.</div>
+      <input class="form-control form-control-sm mb-1" name="eps_inf_${idxStr}" placeholder="ε∞" type="number" step="any">
+      <input class="form-control form-control-sm mb-1" name="wp_${idxStr}" placeholder="ωp (eV)" type="number" step="any">
+      <input class="form-control form-control-sm mb-1" name="gamma_${idxStr}" placeholder="Γ (eV)" type="number" step="any">
     `;
-  } else if (model === "drude_lorentz" || model === "drude-lorentz") {
-    // placeholder if deseas variante más compleja
   } else {
+    // EMT, file u otros: dejar campo de ayuda o vacío
     container.innerHTML = `<div class="form-text">Selecciona 'Archivo' o 'EMT' para subir n(λ) o configurar EMT.</div>`;
   }
 }
 
-/* Build human + LaTeX for Cauchy, Sellmeier, Drude */
-function buildEquationFromParams(idxStr) {
-  const wrapper = layersContainer.querySelector(`div.layer-card[data-idx="${idxStr}"]`);
-  if (!wrapper) return null;
-  const model = wrapper.querySelector(".layer-model").value;
 
-  if (model === "cauchy") {
-    const A = wrapper.querySelector(`input[name="A_${idxStr}"]`)?.value || "";
-    const B = wrapper.querySelector(`input[name="B_${idxStr}"]`)?.value || "";
-    const C = wrapper.querySelector(`input[name="C_${idxStr}"]`)?.value || "";
-    if ([A,B,C].every(v => v === "")) return null;
-    const humanParts = [];
-    if (A !== "") humanParts.push(`${A}`);
-    if (B !== "") humanParts.push(`${B}/λ²`);
-    if (C !== "") humanParts.push(`${C}/λ⁴`);
-    const human = `n(λ) = ${humanParts.join(" + ")}`;
-    const latexParts = [];
-    if (A !== "") latexParts.push(`${A}`);
-    if (B !== "") latexParts.push(`\\dfrac{${B}}{\\lambda^{2}}`);
-    if (C !== "") latexParts.push(`\\dfrac{${C}}{\\lambda^{4}}`);
-    const latex = `n(\\lambda) = ${latexParts.join(" + ")}`;
-    return { human, latex };
-  }
-
-  if (model === "sellmeier") {
-    const B1 = wrapper.querySelector(`input[name="B1_${idxStr}"]`)?.value || "";
-    const C1 = wrapper.querySelector(`input[name="C1_${idxStr}"]`)?.value || "";
-    const B2 = wrapper.querySelector(`input[name="B2_${idxStr}"]`)?.value || "";
-    const C2 = wrapper.querySelector(`input[name="C2_${idxStr}"]`)?.value || "";
-    const B3 = wrapper.querySelector(`input[name="B3_${idxStr}"]`)?.value || "";
-    const C3 = wrapper.querySelector(`input[name="C3_${idxStr}"]`)?.value || "";
-
-    const terms = [], latexTerms = [];
-    if (B1 !== "" && C1 !== "") { terms.push(`${B1}·λ²/(λ² - ${C1})`); latexTerms.push(`\\dfrac{${B1}\\,\\lambda^{2}}{\\lambda^{2} - ${C1}}`); }
-    if (B2 !== "" && C2 !== "") { terms.push(`${B2}·λ²/(λ² - ${C2})`); latexTerms.push(`\\dfrac{${B2}\\,\\lambda^{2}}{\\lambda^{2} - ${C2}}`); }
-    if (B3 !== "" && C3 !== "") { terms.push(`${B3}·λ²/(λ² - ${C3})`); latexTerms.push(`\\dfrac{${B3}\\,\\lambda^{2}}{\\lambda^{2} - ${C3}}`); }
-
-    if (terms.length === 0) return null;
-    const human = `n²(λ) = 1 + ${terms.join(" + ")}`;
-    const latex = `n^{2}(\\lambda) = 1 + ${latexTerms.join(" + ")}`;
-    return { human, latex };
-  }
-
-  if (model === "drude") {
-    const eps_inf = wrapper.querySelector(`input[name="eps_inf_${idxStr}"]`)?.value || "";
-    const wp = wrapper.querySelector(`input[name="wp_${idxStr}"]`)?.value || "";
-    const gamma = wrapper.querySelector(`input[name="gamma_${idxStr}"]`)?.value || "";
-
-    // if none present return null
-    if ([eps_inf, wp, gamma].every(v => v === "")) return null;
-
-    // human readable (use omega notation)
-    let human = `ε(ω) = ${eps_inf || 'ε∞'}`;
-    if (wp !== "" || gamma !== "") {
-      const wpPart = wp !== "" ? `${wp}^2` : `ω_p^{2}`;
-      const gammaPart = gamma !== "" ? `${gamma}` : `γ`;
-      human += ` - ${wpPart}/(ω^2 + i ${gammaPart} ω)`;
-    }
-
-    // latex
-    const eps_l = eps_inf !== "" ? eps_inf : `\\varepsilon_{\\infty}`;
-    const wp_l = wp !== "" ? `(${wp})^{2}` : `\\omega_p^{2}`;
-    const gamma_l = gamma !== "" ? `${gamma}` : `\\gamma`;
-    const latex = `\\varepsilon(\\omega) = ${eps_l} - \\dfrac{${wp_l}}{\\omega^{2} + i ${gamma_l}\\,\\omega}`;
-
-    return { human, latex };
-  }
-
-  return null;
+function refreshLayerTitles(){
+  [...layersContainer.children].forEach((c,i)=> c.querySelector("strong").innerText = `Layer ${i+1}`);
 }
 
-/* render LaTeX preview into container using MathJax (with fallback) */
-function renderEquationPreview(eq, container) {
-  const latex = eq.latex || "";
-  if (!latex || latex.trim().length === 0) {
-    container.textContent = eq.human || "";
-    return;
-  }
-  container.innerHTML = `\\(${latex}\\)`;
-  if (window.MathJax && typeof MathJax.typesetPromise === 'function') {
-    MathJax.typesetPromise([container]).catch((err) => {
-      console.warn("MathJax render error:", err);
-      container.textContent = eq.human || latex;
-    });
-  } else {
-    container.textContent = eq.human || latex;
-  }
-}
-
-function refreshLayerTitles(){ [...layersContainer.children].forEach((c,i)=> c.querySelector("strong").innerText = `Layer ${i+1}`); }
-
+/* validation for each step (simple) */
 function validateStep(step) {
   if (step === 1) {
     const angle = Number(document.getElementById("input-angle").value);
@@ -757,6 +570,7 @@ function validateStep(step) {
       wizardError.style.display = "block";
       return false;
     }
+    // validate wavelength inputs when range/single is selected
     const wlMode = document.querySelector('input[name="wl-option"]:checked').value;
     if (wlMode === 'range') {
       const from = Number(document.getElementById("input-wl-from").value);
@@ -776,16 +590,21 @@ function validateStep(step) {
       }
     }
   }
+  if (step === 2) {
+    // nothing required here for now
+  }
   wizardError.style.display = "none";
   return true;
 }
 
-/* build model object and POST it along with any files (multipart) */
+/* build model object and show summary (on save) */
 wizardSaveBtn.addEventListener("click", async () => {
+  // collect model
   const model = { global: {}, ambient: {}, substrate: {}, layers: [] };
   model.global.angle = Number(document.getElementById("input-angle").value);
   model.global.polarization = document.getElementById("input-polarization").value;
 
+  // wavelength mode
   const wlMode = document.querySelector('input[name="wl-option"]:checked').value;
   model.global.wavelengthMode = wlMode;
   if (wlMode === "range") {
@@ -794,94 +613,58 @@ wizardSaveBtn.addEventListener("click", async () => {
     model.global.wl_steps = Number(document.getElementById("input-wl-steps").value);
   } else if (wlMode === "single") {
     model.global.wl_single = Number(document.getElementById("input-wl-single").value);
+  } else {
+    // 'file' mode: backend will use uploaded file wavelengths
   }
 
+  // ambient
   model.ambient.type = document.getElementById("ambient-select").value;
+  // substrate
   model.substrate.type = document.getElementById("substrate-select").value;
 
-  // collect layers
-  const layerFilesToSend = []; // will append to FormData later
+  // layers
   [...layersContainer.children].forEach(card => {
-    const idx = card.dataset.idx;
     const name = card.querySelector(".layer-name").value;
     const thickness = Number(card.querySelector(".layer-thickness").value);
     const optimize = card.querySelector(".layer-optimize").checked;
     const modelType = card.querySelector(".layer-model").value;
-    const inputMode = card.querySelector(".layer-input-mode").value;
-
-    // params (collect visible param inputs values)
-    const paramInputs = card.querySelectorAll(`#param-inputs-${idx} input`);
-    const params = {};
-    paramInputs.forEach(inp => {
-      const nm = inp.getAttribute('name');
-      if (nm) params[nm] = inp.value || "";
-    });
-
-    // formula LaTeX (mathfield or textarea)
-    let formula_latex = null;
-    const mf = card.querySelector("math-field.layer-mathfield");
-    const ta = card.querySelector(".layer-formula-text");
-    if (inputMode === "formula") {
-      if (mf && typeof mf.getValue === "function") {
-        try { formula_latex = mf.getValue(); } catch(e){ formula_latex = mf.value || null; }
-      } else if (ta) {
-        formula_latex = ta.value || null;
-      }
-    } else {
-      // if params generated a latex in mathfield capture it if present
-      if (mf && typeof mf.getValue === "function") {
-        try { formula_latex = mf.getValue(); } catch(e){ formula_latex = mf.value || null; }
-      }
-    }
-
-    // file (if any) - capture file object for multipart sending
-    const fileInputEl = card.querySelector(".layer-file");
-    let fileMeta = null;
-    if (fileInputEl && fileInputEl.files && fileInputEl.files.length > 0) {
-      const f = fileInputEl.files[0];
-      fileMeta = { name: f.name, size: f.size, type: f.type, fieldKey: `layer_file_${idx}` };
-      layerFilesToSend.push({ key: `layer_file_${idx}`, file: f });
-    }
-
-    const layerObj = { idx, name, thickness, optimize, modelType, inputMode, params, fileMeta };
-    if (formula_latex) layerObj.formula_latex = formula_latex;
-    model.layers.push(layerObj);
+    const params = card.querySelector(".layer-params").value;
+    model.layers.push({name, thickness, optimize, modelType, params});
   });
 
-  // Build FormData: model JSON + files
-  const fd = new FormData();
-  fd.append('model', JSON.stringify(model));
-  layerFilesToSend.forEach(fobj => fd.append(fobj.key, fobj.file, fobj.file.name));
+  // show a quick summary in console and in the modal footer
+  console.log("MODEL SAVE", model);
+  wizardError.style.display = "none";
 
-  // send to backend as multipart (backend should accept multipart/form-data)
+  // hide modal
+  modelWizardModal.hide();
+
+  // display summary panel in the page (we'll inject a simple card)
+  showModelSummary(model);
+
+  // Optionally: POST to backend endpoint '/api/model' to save the model (see backend snippet)
   try {
-    const res = await fetch('/api/model', { method: 'POST', body: fd });
+    const res = await fetch('/api/model', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(model)
+    });
     if (!res.ok) {
-      const txt = await res.text().catch(()=>null);
-      console.warn('Backend rejected model save:', txt);
-      showAlert('Error al guardar modelo en backend. Revisa consola.', 'warning');
+      console.warn('Backend rejected model save:', await res.text());
     } else {
       console.log('Model saved on backend');
-      showAlert('Modelo guardado en backend (si está disponible).', 'success');
     }
   } catch (e) {
     console.warn('Could not reach /api/model', e);
-    showAlert('No se pudo conectar con /api/model. Revisa la consola.', 'danger');
   }
-
-  console.log("MODEL SAVE", model);
-  wizardError.style.display = "none";
-  modelWizardModal.hide();
-  showModelSummary(model);
 });
 
 function showModelSummary(model) {
-  // elimina tarjeta anterior si existe
+  // inject a full-width card under the upload area summarizing the model (so no "hole")
+  const container = document.querySelector('.container');
+  // remove previous summary if exists
   const existing = document.getElementById('model-summary-card');
   if (existing) existing.remove();
-
-  // aseguramos que el modelo se pueda usar desde el global
-  window.lastSavedModel = model;
 
   const card = document.createElement('div');
   card.id = 'model-summary-card';
@@ -892,87 +675,39 @@ function showModelSummary(model) {
       <p class="mb-1"><strong>Ángulo:</strong> ${model.global.angle}°, <strong>Polarización:</strong> ${model.global.polarization}</p>
       <p class="mb-1"><strong>Modo λ:</strong> ${model.global.wavelengthMode}${model.global.wavelengthMode==='range' ? ` (${model.global.wl_from}–${model.global.wl_to} nm, ${model.global.wl_steps} pasos)` : model.global.wavelengthMode==='single' ? ` (${model.global.wl_single} nm)` : ' (usar archivo)'} </p>
       <p class="mb-1"><strong>Capas:</strong> ${model.layers.length}</p>
-      <ul>${model.layers.map((ly, i) => `<li>${i+1}. ${ly.name} — ${ly.thickness || ''} nm — ${ly.modelType} ${ly.optimize ? '(optimizable)' : ''}${ly.formula_latex ? ' — fórmula: ' + ly.formula_latex : ''}</li>`).join('')}</ul>
+      <ul>${model.layers.map((ly, i) => `<li>${i+1}. ${ly.name} — ${ly.thickness} nm — ${ly.modelType} ${ly.optimize ? '(optimizable)' : ''}</li>`).join('')}</ul>
       <div class="mt-2">
         <button id="edit-model" class="btn btn-outline-secondary btn-sm">Editar modelo</button>
         <button id="go-fit" class="btn btn-success btn-sm ms-2">Ir a optimización</button>
       </div>
-      <div id="tmm-result-area" class="mt-3"></div>
     </div>
   `;
-
+  // insert after top row
   const topRow = document.querySelector('.container > .row');
   topRow.insertAdjacentElement('afterend', card);
 
   document.getElementById('edit-model').addEventListener('click', () => { document.getElementById('btn-next').click(); });
-
-  document.getElementById('go-fit').addEventListener('click', async () => {
-    try {
-      const modelToSend = window.lastSavedModel;
-      if (!modelToSend) {
-        alert('No hay modelo guardado. Guarda el modelo antes de optimizar.');
-        return;
-      }
-
-      // Construir FormData
-      const fd = new FormData();
-      fd.append('payload', JSON.stringify(modelToSend));
-
-      // Añadir archivos (si existen en model.layers[*].fileObj)
-      for (let i = 0; i < modelToSend.layers.length; i++) {
-        const layer = modelToSend.layers[i];
-        if (layer.modelType === 'file' && layer.fileObj) {
-          // usar file_field como nombre de campo; si no existe, generar uno
-          const fieldName = layer.file_field || `file_layer_${i}`;
-          fd.append(fieldName, layer.fileObj, layer.fileObj.name);
-        }
-      }
-
-      // Petición al endpoint que debería existir en tu backend
-      const resp = await fetch('/api/tmm/run-multipart', {
-        method: 'POST',
-        body: fd
-      });
-
-      const json = await resp.json();
-
-      if (!resp.ok) {
-        console.error('TMM error', json);
-        alert('Error en optimización: ' + (json.detail || JSON.stringify(json)));
-        return;
-      }
-
-      console.log('TMM result', json);
-
-      // Mostrar resultados básicos: dibujar psi y delta (si vienen)
-      const area = document.getElementById('tmm-result-area');
-      area.innerHTML = `
-        <h6>Resultados TMM</h6>
-        <div id="tmm-plot-psi" style="height:280px;"></div>
-        <div id="tmm-plot-delta" style="height:280px; margin-top:10px;"></div>
-      `;
-
-      // convertir respuesta a arrays numéricos
-      const wl = json.wavelength || [];
-      const psi = (json.psi_deg || []).map(x => x === null ? NaN : x);
-      const delta = (json.delta_deg || []).map(x => x === null ? NaN : x);
-
-      // plot psi
-      Plotly.newPlot('tmm-plot-psi', [{
-        x: wl, y: psi, mode: 'lines+markers', name: 'psi (deg)', marker: {size:6}
-      }], { margin:{t:30,l:50,b:50}, title: 'Psi (ψ) vs λ', xaxis:{title:'λ (nm)'}, yaxis:{title:'ψ (deg)'}, template:'plotly_white' }, {responsive:true});
-
-      // plot delta
-      Plotly.newPlot('tmm-plot-delta', [{
-        x: wl, y: delta, mode: 'lines+markers', name: 'delta (deg)', marker:{size:6}
-      }], { margin:{t:30,l:50,b:50}, title: 'Delta (Δ) vs λ', xaxis:{title:'λ (nm)'}, yaxis:{title:'Δ (deg)'}, template:'plotly_white' }, {responsive:true});
-
-    } catch (err) {
-      console.error(err);
-      alert('Error al ejecutar optimización: ' + err.message);
-    }
+  document.getElementById('go-fit').addEventListener('click', () => {
+    // TODO: navigate to optimization view or enable fitting UI
+    alert('Ir a optimización (a implementar).');
   });
 }
+
+function collectModelData() {
+  const model = { layers: [] };
+  const layerCards = document.querySelectorAll(".layer-card");
+
+  layerCards.forEach(card => {
+      const name = card.querySelector(".layer-name").value;
+      const thickness = parseFloat(card.querySelector(".layer-thickness").value);
+      const optimize = card.querySelector(".layer-optimize").checked;
+      const modelType = card.querySelector(".layer-model-type").value;
+      // aquí se agregan más campos...
+  });
+
+  return model;
+}
+
 </script>
 
 </body>

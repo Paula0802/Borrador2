@@ -6,3 +6,19 @@ section { margin-bottom: 24px; border-bottom: 1px solid #eee; padding-bottom: 12
 button { background:#0b3d91; color:white; padding:8px 12px; border:none; border-radius:4px; cursor:pointer; }
 textarea { width:100%; }
 footer { background:#fafafa; padding:10px; text-align:center; color:#666; }
+
+/* Estilos nuevos */
+.actions-card {
+  position: sticky;
+  top: 90px;        /* se "pega" al hacer scroll */
+  z-index: 2;
+  box-shadow: 0 6px 18px rgba(0,0,0,.04);
+}
+
+/* Ajuste de la tabla preview para que se vea mejor con 10 filas */
+.table-preview td, .table-preview th { vertical-align: middle; padding: .65rem; }
+
+/* MathLive small tweak */
+math-field { width: 100%; min-height: 2.2rem; border: 1px solid #e3e6ea; border-radius: 6px; padding: .35rem; }
+.formula-help { font-size: .85rem; color: #666; margin-top: .4rem; }
+
